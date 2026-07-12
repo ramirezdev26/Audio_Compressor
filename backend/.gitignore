@@ -1,0 +1,27 @@
+# Build results
+bin/
+obj/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# VS Code
+.vscode/
+
+# Base de datos SQLite local
+*.db
+*.db-shm
+*.db-wal
+
+# Archivos de audio subidos (File Store local)
+FileStore/
+
+# Logs
+*.log
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
