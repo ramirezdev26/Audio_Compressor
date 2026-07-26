@@ -7,6 +7,8 @@ namespace AudioProcessor.Tests;
 
 public class UploadAudioServiceTests
 {
+    private const int MaxSummaryLength = 50;
+
     private sealed class FakeFileStore : IFileStore
     {
         public Task<string> SaveAsync(Stream fileStream, string fileName)
@@ -28,15 +30,40 @@ public class UploadAudioServiceTests
         }
     }
 
+    private sealed class FakeAudioTranscriber : IAudioTranscriber
+    {
+        private readonly string _transcript;
+        public FakeAudioTranscriber(string transcript) => _transcript = transcript;
+        public Task<string> TranscribeAsync(string audioFilePath) => Task.FromResult(_transcript);
+    }
+
+    private sealed class FakeTextSummarizer : ITextSummarizer
+    {
+        public Task<string> SummarizeAsync(string text, int maxLength)
+        {
+            var summary = text.Length > maxLength ? text[..maxLength] : text;
+            return Task.FromResult(summary);
+        }
+    }
+
+    private static UploadAudioService CreateService(
+        FakeAudioRepository repo,
+        string transcript = "Esta es una transcripción de prueba con contenido suficiente.")
+    {
+        return new UploadAudioService(
+            new FakeFileStore(),
+            repo,
+            new FakeAudioCompressor(),
+            new FakeAudioTranscriber(transcript),
+            new FakeTextSummarizer(),
+            NullLogger<UploadAudioService>.Instance);
+    }
+
     [Fact]
     public async Task UploadAsync_ReturnsNonEmptyCompressedUrl()
     {
         var repo = new FakeAudioRepository();
-        var service = new UploadAudioService(
-            new FakeFileStore(),
-            repo,
-            new FakeAudioCompressor(),
-            NullLogger<UploadAudioService>.Instance);
+        var service = CreateService(repo);
 
         using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
         var result = await service.UploadAsync(stream, "test.mp3");
@@ -48,16 +75,37 @@ public class UploadAudioServiceTests
     public async Task UploadAsync_SavedEntityHasNonEmptyCompressedUrl()
     {
         var repo = new FakeAudioRepository();
-        var service = new UploadAudioService(
-            new FakeFileStore(),
-            repo,
-            new FakeAudioCompressor(),
-            NullLogger<UploadAudioService>.Instance);
+        var service = CreateService(repo);
 
         using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
         await service.UploadAsync(stream, "test.wav");
 
         Assert.NotNull(repo.Saved);
         Assert.False(string.IsNullOrEmpty(repo.Saved!.CompressedUrl));
+    }
+
+    [Fact]
+    public async Task UploadAsync_WithLongTranscript_SummaryIsAtMost50Chars()
+    {
+        var repo = new FakeAudioRepository();
+        var longTranscript = new string('a', 200);
+        var service = CreateService(repo, longTranscript);
+
+        using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+        var result = await service.UploadAsync(stream, "test.mp3");
+
+        Assert.True(result.Summary.Length <= MaxSummaryLength);
+    }
+
+    [Fact]
+    public async Task UploadAsync_WithTranscript_SummaryIsNotEmpty()
+    {
+        var repo = new FakeAudioRepository();
+        var service = CreateService(repo, "Transcripción no vacía para el audio de prueba.");
+
+        using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+        var result = await service.UploadAsync(stream, "test.mp3");
+
+        Assert.False(string.IsNullOrEmpty(result.Summary));
     }
 }
