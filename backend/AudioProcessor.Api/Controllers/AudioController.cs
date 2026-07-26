@@ -23,6 +23,12 @@ public class AudioController : ControllerBase
         using var stream = file.OpenReadStream();
         var result = await _uploadAudioService.UploadAsync(stream, file.FileName);
 
-        return Ok(new { result.Id, result.Url });
+        return Ok(new
+        {
+            result.Id,
+            result.Url,
+            result.CompressedUrl,
+            result.CompressionTimeMs
+        });
     }
 }

@@ -25,3 +25,5 @@ FileStore/
 # Archivos de sistema
 .DS_Store
 Thumbs.db
+
+backend/AudioProcessor.Api/ffmpeg-bin/
