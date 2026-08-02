@@ -12,6 +12,17 @@ using Xabe.FFmpeg.Downloader;
 
 var builder = WebApplication.CreateBuilder(args);
 
+const string DevCorsPolicy = "DevCors";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(DevCorsPolicy, policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .WithMethods("GET", "POST")
+              .AllowAnyHeader();
+    });
+});
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -76,6 +87,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors(DevCorsPolicy);
 app.UseAuthorization();
 app.MapControllers();
 
