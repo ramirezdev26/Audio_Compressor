@@ -28,7 +28,9 @@ public class AudioController : ControllerBase
             result.Id,
             result.Url,
             result.CompressedUrl,
-            result.CompressionTimeMs
+            result.CompressionTimeMs,
+            result.Summary,
+            result.SummaryTimeMs
         });
     }
 }

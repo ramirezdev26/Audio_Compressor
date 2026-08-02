@@ -18,6 +18,12 @@ Proyecto organizado con Clean Architecture:
 ```bash
   dotnet tool install --global dotnet-ef
 ```
+- [Ollama](https://ollama.com) instalado y corriendo localmente, con el modelo `llama3.2:1b` descargado (se usa para generar el resumen del audio):
+```bash
+  ollama pull llama3.2:1b
+  ollama serve
+```
+  La URL base de Ollama es configurable en `appsettings.json` (clave `Ollama:BaseUrl`, por defecto `http://localhost:11434`).
 
 ## Cómo correr el entorno de desarrollo
 
@@ -54,8 +60,12 @@ curl -X POST http://localhost:5262/api/audio \
 ```json
 {
   "id": "0d4b4b61-5496-48f4-929c-dbba8f4ec826",
-  "url": "/files/0d4b4b61-5496-48f4-929c-dbba8f4ec826.mp3"
+  "url": "/files/0d4b4b61-5496-48f4-929c-dbba8f4ec826.mp3",
+  "compressedUrl": "/files/0d4b4b61-5496-48f4-929c-dbba8f4ec826_compressed.aac",
+  "compressionTimeMs": 812,
+  "summary": "Resumen breve del contenido del audio",
+  "summaryTimeMs": 430
 }
 ```
 
-El archivo se guarda en `AudioProcessor.Api/FileStore/` y el registro (Id + Url) se guarda en la base de datos SQLite (`audio.db`).
+El archivo se guarda en `AudioProcessor.Api/FileStore/` y el registro completo (incluyendo la transcripción y el resumen) se guarda en la base de datos SQLite (`audio.db`). El audio se transcribe localmente con Whisper.net (modelo `tiny`) y luego se resume con Ollama (`llama3.2:1b`), truncando el resultado a un máximo de 50 caracteres.
