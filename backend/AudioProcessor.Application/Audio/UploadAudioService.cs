@@ -7,20 +7,28 @@ namespace AudioProcessor.Application.Audio;
 
 public class UploadAudioService
 {
+    private const int MaxSummaryLength = 50;
+
     private readonly IFileStore _fileStore;
     private readonly IAudioRepository _audioRepository;
     private readonly IAudioCompressor _audioCompressor;
+    private readonly IAudioTranscriber _audioTranscriber;
+    private readonly ITextSummarizer _textSummarizer;
     private readonly ILogger<UploadAudioService> _logger;
 
     public UploadAudioService(
         IFileStore fileStore,
         IAudioRepository audioRepository,
         IAudioCompressor audioCompressor,
+        IAudioTranscriber audioTranscriber,
+        ITextSummarizer textSummarizer,
         ILogger<UploadAudioService> logger)
     {
         _fileStore = fileStore;
         _audioRepository = audioRepository;
         _audioCompressor = audioCompressor;
+        _audioTranscriber = audioTranscriber;
+        _textSummarizer = textSummarizer;
         _logger = logger;
     }
 
@@ -54,12 +62,30 @@ public class UploadAudioService
 
             _logger.LogInformation("Audio {Id} compressed in {ElapsedMs} ms", id, compressionTimeMs);
 
+            var transcriptionSw = Stopwatch.StartNew();
+            var transcript = await _audioTranscriber.TranscribeAsync(tempInput);
+            transcriptionSw.Stop();
+            var transcriptionTimeMs = transcriptionSw.ElapsedMilliseconds;
+
+            _logger.LogInformation("Audio {Id} transcribed in {ElapsedMs} ms", id, transcriptionTimeMs);
+
+            var summarySw = Stopwatch.StartNew();
+            var summary = await _textSummarizer.SummarizeAsync(transcript, MaxSummaryLength);
+            summarySw.Stop();
+            var summaryTimeMs = summarySw.ElapsedMilliseconds;
+
+            _logger.LogInformation("Audio {Id} summarized in {ElapsedMs} ms", id, summaryTimeMs);
+
             var audioFile = new AudioFile
             {
                 Id = id,
                 Url = url,
                 CompressedUrl = compressedUrl,
-                CompressionTimeMs = compressionTimeMs
+                CompressionTimeMs = compressionTimeMs,
+                Transcript = transcript,
+                TranscriptionTimeMs = transcriptionTimeMs,
+                Summary = summary,
+                SummaryTimeMs = summaryTimeMs
             };
             await _audioRepository.AddAsync(audioFile);
 
