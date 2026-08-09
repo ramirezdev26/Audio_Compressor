@@ -19,6 +19,12 @@ entrevista, etc.) y quiere:
 La aplicación resuelve esto con un pipeline automático: **subir → comprimir
 → transcribir → resumir**, y devuelve el resultado en una sola respuesta.
 
+## Demo — Evaluación de Medio Término
+
+- 🎥 [Video demo (3 min)](https://jalauniv-my.sharepoint.com/:v:/g/personal/santiago_ramirez_jala_university/IQAJZYbccH2BSpb6FaB3_avTAZAsK_IPWqkaSRdHM1C2vBI?e=Ai77d6&nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D)
+- 📊 Diapositivas: [`docs/midterm-deck.pptx`](./docs/midterm-deck.pptx)
+- 🏗️ Diagrama de arquitectura y pipeline: [`docs/architecture.md`](./docs/architecture.md)
+
 ## Arquitectura
 
 El proyecto está dividido en dos partes independientes dentro de este mismo
