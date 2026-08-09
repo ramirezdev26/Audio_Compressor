@@ -8,6 +8,7 @@ locales (sin APIs de pago).
 **Autor:** Santiago Ramírez
 **Curso:** CSPR-471 Programming 7 — Jala University
 **Profesor:** Leopoldo Flores
+**Repositorio:** [gitlab.com/jala-university1/cohort-2/ES.CSPR-471.GA.T2.26.M1/SB/santiago.ramirez/capstone](https://gitlab.com/jala-university1/cohort-2/ES.CSPR-471.GA.T2.26.M1/SB/santiago.ramirez/capstone/-/blob/main/README.md?ref_type=heads)
 
 ## Caso de uso
 
