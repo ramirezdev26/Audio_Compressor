@@ -7,11 +7,13 @@ namespace AudioProcessor.Api.Controllers;
 [Route("api/audio")]
 public class AudioController : ControllerBase
 {
-    private readonly UploadAudioService _uploadAudioService;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<AudioController> _logger;
 
-    public AudioController(UploadAudioService uploadAudioService)
+    public AudioController(IServiceScopeFactory scopeFactory, ILogger<AudioController> logger)
     {
-        _uploadAudioService = uploadAudioService;
+        _scopeFactory = scopeFactory;
+        _logger = logger;
     }
 
     [HttpPost]
@@ -20,17 +22,38 @@ public class AudioController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest("No file was provided.");
 
-        using var stream = file.OpenReadStream();
-        var result = await _uploadAudioService.UploadAsync(stream, file.FileName);
+        var id = Guid.NewGuid();
+        var tempFilePath = Path.Combine(Path.GetTempPath(), $"{id}_{file.FileName}");
 
-        return Ok(new
+        using (var tempStream = new FileStream(tempFilePath, FileMode.Create))
+            await file.CopyToAsync(tempStream);
+
+        _ = Task.Run(() => ProcessInBackgroundAsync(id, tempFilePath, file.FileName));
+
+        return Accepted(new
         {
-            result.Id,
-            result.Url,
-            result.CompressedUrl,
-            result.CompressionTimeMs,
-            result.Summary,
-            result.SummaryTimeMs
+            id,
+            message = "Procesando en segundo plano"
         });
+    }
+
+    private async Task ProcessInBackgroundAsync(Guid id, string tempFilePath, string originalFileName)
+    {
+        _logger.LogInformation("Background processing started for audio {Id}", id);
+
+        using var scope = _scopeFactory.CreateScope();
+        var uploadAudioService = scope.ServiceProvider.GetRequiredService<UploadAudioService>();
+
+        try
+        {
+            using (var stream = System.IO.File.OpenRead(tempFilePath))
+                await uploadAudioService.UploadAsync(stream, originalFileName);
+
+            _logger.LogInformation("Background processing finished for audio {Id}", id);
+        }
+        finally
+        {
+            if (System.IO.File.Exists(tempFilePath)) System.IO.File.Delete(tempFilePath);
+        }
     }
 }
