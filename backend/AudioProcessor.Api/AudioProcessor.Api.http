@@ -1,6 +1,40 @@
 @AudioProcessor.Api_HostAddress = http://localhost:5262
 
+### Health check / endpoint de ejemplo generado por la plantilla
 GET {{AudioProcessor.Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+### Subir un archivo de audio (POST /api/audio)
+# Reemplaza la ruta de "< " por un archivo de audio real en tu máquina.
+# El servidor lo guarda, lo comprime a AAC, lo transcribe con Whisper
+# y genera un resumen con Ollama; todo eso vuelve en la respuesta.
+POST {{AudioProcessor.Api_HostAddress}}/api/audio
+Content-Type: multipart/form-data; boundary=----AudioBoundary
+
+------AudioBoundary
+Content-Disposition: form-data; name="file"; filename="sample.mp3"
+Content-Type: audio/mpeg
+
+< ./sample-files/sample.mp3
+------AudioBoundary--
+
+###
+
+### Ejemplo de respuesta esperada (200 OK)
+# {
+#   "id": "0d4b4b61-5496-48f4-929c-dbba8f4ec826",
+#   "url": "/files/0d4b4b61-5496-48f4-929c-dbba8f4ec826.mp3",
+#   "compressedUrl": "/files/0d4b4b61-5496-48f4-929c-dbba8f4ec826_compressed.aac",
+#   "compressionTimeMs": 812,
+#   "summary": "Resumen breve del contenido del audio",
+#   "summaryTimeMs": 430
+# }
+
+###
+
+### Caso de error: request sin archivo (debe responder 400 Bad Request)
+POST {{AudioProcessor.Api_HostAddress}}/api/audio
+Content-Type: multipart/form-data; boundary=----AudioBoundary
+

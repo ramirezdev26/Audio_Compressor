@@ -40,6 +40,7 @@ builder.Services.AddHttpClient<ITextSummarizer, OllamaTextSummarizer>((sp, clien
 {
     var baseUrl = sp.GetRequiredService<IConfiguration>()["Ollama:BaseUrl"] ?? "http://localhost:11434";
     client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromMinutes(5);
 });
 
 builder.Services.AddScoped<UploadAudioService>();

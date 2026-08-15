@@ -51,30 +51,48 @@ public class UploadAudioService
             using (var s = File.OpenRead(tempInput))
                 url = await _fileStore.SaveAsync(s, storedFileName);
 
-            var sw = Stopwatch.StartNew();
-            await _audioCompressor.CompressToAacAsync(tempInput, tempOutput);
-            sw.Stop();
-            var compressionTimeMs = sw.ElapsedMilliseconds;
+            async Task<(string CompressedUrl, long CompressionTimeMs)> CompressBranchAsync()
+            {
+                var sw = Stopwatch.StartNew();
+                await _audioCompressor.CompressToAacAsync(tempInput, tempOutput);
+                sw.Stop();
+                var compressionTimeMs = sw.ElapsedMilliseconds;
 
-            string compressedUrl;
-            using (var s = File.OpenRead(tempOutput))
-                compressedUrl = await _fileStore.SaveAsync(s, compressedFileName);
+                string compressedUrl;
+                using (var s = File.OpenRead(tempOutput))
+                    compressedUrl = await _fileStore.SaveAsync(s, compressedFileName);
 
-            _logger.LogInformation("Audio {Id} compressed in {ElapsedMs} ms", id, compressionTimeMs);
+                _logger.LogInformation("Audio {Id} compressed in {ElapsedMs} ms", id, compressionTimeMs);
 
-            var transcriptionSw = Stopwatch.StartNew();
-            var transcript = await _audioTranscriber.TranscribeAsync(tempInput);
-            transcriptionSw.Stop();
-            var transcriptionTimeMs = transcriptionSw.ElapsedMilliseconds;
+                return (compressedUrl, compressionTimeMs);
+            }
 
-            _logger.LogInformation("Audio {Id} transcribed in {ElapsedMs} ms", id, transcriptionTimeMs);
+            async Task<(string Transcript, long TranscriptionTimeMs, string Summary, long SummaryTimeMs)> TranscribeAndSummarizeBranchAsync()
+            {
+                var transcriptionSw = Stopwatch.StartNew();
+                var transcript = await _audioTranscriber.TranscribeAsync(tempInput);
+                transcriptionSw.Stop();
+                var transcriptionTimeMs = transcriptionSw.ElapsedMilliseconds;
 
-            var summarySw = Stopwatch.StartNew();
-            var summary = await _textSummarizer.SummarizeAsync(transcript, MaxSummaryLength);
-            summarySw.Stop();
-            var summaryTimeMs = summarySw.ElapsedMilliseconds;
+                _logger.LogInformation("Audio {Id} transcribed in {ElapsedMs} ms", id, transcriptionTimeMs);
 
-            _logger.LogInformation("Audio {Id} summarized in {ElapsedMs} ms", id, summaryTimeMs);
+                var summarySw = Stopwatch.StartNew();
+                var summary = await _textSummarizer.SummarizeAsync(transcript, MaxSummaryLength);
+                summarySw.Stop();
+                var summaryTimeMs = summarySw.ElapsedMilliseconds;
+
+                _logger.LogInformation("Audio {Id} summarized in {ElapsedMs} ms", id, summaryTimeMs);
+
+                return (transcript, transcriptionTimeMs, summary, summaryTimeMs);
+            }
+
+            var compressionTask = CompressBranchAsync();
+            var transcriptionTask = TranscribeAndSummarizeBranchAsync();
+
+            await Task.WhenAll(compressionTask, transcriptionTask);
+
+            var (compressedUrl, compressionTimeMs) = compressionTask.Result;
+            var (transcript, transcriptionTimeMs, summary, summaryTimeMs) = transcriptionTask.Result;
 
             var audioFile = new AudioFile
             {

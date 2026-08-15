@@ -27,3 +27,7 @@ FileStore/
 Thumbs.db
 
 backend/AudioProcessor.Api/ffmpeg-bin/
+
+AudioProcessor.Api/ffmpeg-bin/
+AudioProcessor.Api/whisper-models/
+EOF
