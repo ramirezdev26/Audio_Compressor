@@ -86,13 +86,15 @@ public class UploadAudioService
                 return (transcript, transcriptionTimeMs, summary, summaryTimeMs);
             }
 
-            var compressionTask = CompressBranchAsync();
-            var transcriptionTask = TranscribeAndSummarizeBranchAsync();
+            (string CompressedUrl, long CompressionTimeMs) compressionResult = default;
+            (string Transcript, long TranscriptionTimeMs, string Summary, long SummaryTimeMs) transcriptionResult = default;
 
-            await Task.WhenAll(compressionTask, transcriptionTask);
+            Parallel.Invoke(
+                () => compressionResult = CompressBranchAsync().GetAwaiter().GetResult(),
+                () => transcriptionResult = TranscribeAndSummarizeBranchAsync().GetAwaiter().GetResult());
 
-            var (compressedUrl, compressionTimeMs) = compressionTask.Result;
-            var (transcript, transcriptionTimeMs, summary, summaryTimeMs) = transcriptionTask.Result;
+            var (compressedUrl, compressionTimeMs) = compressionResult;
+            var (transcript, transcriptionTimeMs, summary, summaryTimeMs) = transcriptionResult;
 
             var audioFile = new AudioFile
             {
