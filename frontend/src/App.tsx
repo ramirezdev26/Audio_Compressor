@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import './App.css'
 import type { AudioValidationResult } from './workers/audioValidation'
@@ -14,6 +14,19 @@ interface UploadedAudio {
   status: UploadStatus
   reason?: string
   summary?: string
+}
+
+interface ProcessedAudio {
+  id: string
+  url: string
+  compressedUrl: string
+  filteredUrl: string
+  uploadedAt: string
+}
+
+function resolveApiUrl(path: string): string {
+  const apiUrl = import.meta.env.VITE_API_URL
+  return path.startsWith('/') ? `${apiUrl}${path}` : path
 }
 
 function formatFileSize(bytes: number): string {
@@ -47,10 +60,26 @@ function App() {
   const [summary, setSummary] = useState('')
   const [uploads, setUploads] = useState<UploadedAudio[]>([])
   const [currentUploadId, setCurrentUploadId] = useState<string | null>(null)
+  const [processedAudios, setProcessedAudios] = useState<ProcessedAudio[]>([])
 
   function updateUpload(id: string, changes: Partial<UploadedAudio>) {
     setUploads((prev) => prev.map((upload) => (upload.id === id ? { ...upload, ...changes } : upload)))
   }
+
+  async function fetchProcessedAudios() {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/audio`)
+      if (!response.ok) return
+      const data: ProcessedAudio[] = await response.json()
+      setProcessedAudios(data)
+    } catch {
+      // Ignore fetch errors; the list simply stays as-is.
+    }
+  }
+
+  useEffect(() => {
+    fetchProcessedAudios()
+  }, [])
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0] ?? null
@@ -109,6 +138,7 @@ function App() {
       setSummary(data.summary)
       setStatus('success')
       updateUpload(currentUploadId, { status: 'uploaded', summary: data.summary })
+      await fetchProcessedAudios()
     } catch {
       setStatus('error')
       updateUpload(currentUploadId, { status: 'error' })
@@ -137,6 +167,27 @@ function App() {
           {uploads.map((upload) => (
             <li key={upload.id}>
               {upload.name} ({formatFileSize(upload.size)}) — {describeUploadStatus(upload)}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h2>Audios procesados</h2>
+      {processedAudios.length === 0 ? (
+        <p>No hay audios procesados todavía.</p>
+      ) : (
+        <ul>
+          {processedAudios.map((audio) => (
+            <li key={audio.id}>
+              <p>{audio.id}</p>
+              <div>
+                <p>Original</p>
+                <audio controls src={resolveApiUrl(audio.url)} />
+              </div>
+              <div>
+                <p>Filtrado</p>
+                <audio controls src={resolveApiUrl(audio.filteredUrl)} />
+              </div>
             </li>
           ))}
         </ul>
