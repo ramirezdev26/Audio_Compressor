@@ -48,7 +48,16 @@ builder.Services.AddHttpClient<ITextSummarizer, OllamaTextSummarizer>((sp, clien
 
 builder.Services.AddScoped<UploadAudioService>();
 
+// Caps how many background audio jobs (compression + filter + transcription/summary)
+// run at the same time, so a burst of uploads can't exhaust CPU/RAM. The client still
+// gets a 202 Accepted immediately; extra jobs just wait for a free slot.
+var maxConcurrentJobs = builder.Configuration.GetValue<int?>("Processing:MaxConcurrentJobs")
+    ?? Environment.ProcessorCount;
+builder.Services.AddSingleton(new SemaphoreSlim(maxConcurrentJobs, maxConcurrentJobs));
+
 var app = builder.Build();
+
+app.Logger.LogInformation("Background audio processing concurrency limit: {MaxConcurrentJobs}", maxConcurrentJobs);
 
 // Set up FFmpeg: download to local path if not present, else use system installation
 var ffmpegLocalPath = Path.Combine(Directory.GetCurrentDirectory(), "ffmpeg-bin");

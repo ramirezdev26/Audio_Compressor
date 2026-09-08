@@ -10,12 +10,18 @@ public class AudioController : ControllerBase
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IAudioRepository _audioRepository;
+    private readonly SemaphoreSlim _processingSemaphore;
     private readonly ILogger<AudioController> _logger;
 
-    public AudioController(IServiceScopeFactory scopeFactory, IAudioRepository audioRepository, ILogger<AudioController> logger)
+    public AudioController(
+        IServiceScopeFactory scopeFactory,
+        IAudioRepository audioRepository,
+        SemaphoreSlim processingSemaphore,
+        ILogger<AudioController> logger)
     {
         _scopeFactory = scopeFactory;
         _audioRepository = audioRepository;
+        _processingSemaphore = processingSemaphore;
         _logger = logger;
     }
 
@@ -59,13 +65,15 @@ public class AudioController : ControllerBase
 
     private async Task ProcessInBackgroundAsync(Guid id, string tempFilePath, string originalFileName)
     {
-        _logger.LogInformation("Background processing started for audio {Id}", id);
-
-        using var scope = _scopeFactory.CreateScope();
-        var uploadAudioService = scope.ServiceProvider.GetRequiredService<UploadAudioService>();
+        _logger.LogInformation("Audio {Id} waiting for a processing slot", id);
+        await _processingSemaphore.WaitAsync();
+        _logger.LogInformation("Audio {Id} acquired a processing slot, starting background processing", id);
 
         try
         {
+            using var scope = _scopeFactory.CreateScope();
+            var uploadAudioService = scope.ServiceProvider.GetRequiredService<UploadAudioService>();
+
             using (var stream = System.IO.File.OpenRead(tempFilePath))
                 await uploadAudioService.UploadAsync(stream, originalFileName);
 
@@ -73,6 +81,7 @@ public class AudioController : ControllerBase
         }
         finally
         {
+            _processingSemaphore.Release();
             if (System.IO.File.Exists(tempFilePath)) System.IO.File.Delete(tempFilePath);
         }
     }
