@@ -5,4 +5,5 @@ namespace AudioProcessor.Application.Interfaces;
 public interface IAudioRepository
 {
     Task AddAsync(AudioFile audioFile);
+    Task<List<AudioFile>> GetAllAsync();
 }
