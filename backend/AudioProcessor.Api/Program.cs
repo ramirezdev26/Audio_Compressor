@@ -4,8 +4,10 @@ using AudioProcessor.Application.Interfaces;
 using AudioProcessor.Application.Audio;
 using AudioProcessor.Infrastructure.Storage;
 using AudioProcessor.Infrastructure.Compression;
+using AudioProcessor.Infrastructure.Filtering;
 using AudioProcessor.Infrastructure.Transcription;
 using AudioProcessor.Infrastructure.Summarization;
+using Microsoft.Extensions.FileProviders;
 using Whisper.net.Ggml;
 using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
@@ -32,6 +34,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IFileStore, LocalFileStore>();
 builder.Services.AddScoped<IAudioRepository, AudioRepository>();
 builder.Services.AddScoped<IAudioCompressor, FFmpegAudioCompressor>();
+builder.Services.AddScoped<IAudioFilter, FFmpegAudioFilter>();
 
 var whisperModelPath = Path.Combine(Directory.GetCurrentDirectory(), "whisper-models", "ggml-tiny.bin");
 builder.Services.AddSingleton<IAudioTranscriber>(new WhisperAudioTranscriber(whisperModelPath));
@@ -90,6 +93,15 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors(DevCorsPolicy);
 app.UseAuthorization();
+
+var fileStorePath = Path.Combine(Directory.GetCurrentDirectory(), "FileStore");
+Directory.CreateDirectory(fileStorePath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(fileStorePath),
+    RequestPath = "/files"
+});
+
 app.MapControllers();
 
 app.Run();

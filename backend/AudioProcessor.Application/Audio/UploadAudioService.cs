@@ -14,6 +14,7 @@ public class UploadAudioService
     private readonly IAudioCompressor _audioCompressor;
     private readonly IAudioTranscriber _audioTranscriber;
     private readonly ITextSummarizer _textSummarizer;
+    private readonly IAudioFilter _audioFilter;
     private readonly ILogger<UploadAudioService> _logger;
 
     public UploadAudioService(
@@ -22,6 +23,7 @@ public class UploadAudioService
         IAudioCompressor audioCompressor,
         IAudioTranscriber audioTranscriber,
         ITextSummarizer textSummarizer,
+        IAudioFilter audioFilter,
         ILogger<UploadAudioService> logger)
     {
         _fileStore = fileStore;
@@ -29,6 +31,7 @@ public class UploadAudioService
         _audioCompressor = audioCompressor;
         _audioTranscriber = audioTranscriber;
         _textSummarizer = textSummarizer;
+        _audioFilter = audioFilter;
         _logger = logger;
     }
 
@@ -38,9 +41,11 @@ public class UploadAudioService
         var extension = Path.GetExtension(originalFileName);
         var storedFileName = $"{id}{extension}";
         var compressedFileName = $"{id}_compressed.aac";
+        var filteredFileName = $"{id}_filtered{extension}";
 
         var tempInput = Path.Combine(Path.GetTempPath(), storedFileName);
         var tempOutput = Path.Combine(Path.GetTempPath(), compressedFileName);
+        var tempFilteredOutput = Path.Combine(Path.GetTempPath(), filteredFileName);
 
         try
         {
@@ -67,6 +72,22 @@ public class UploadAudioService
                 return (compressedUrl, compressionTimeMs);
             }
 
+            async Task<(string FilteredUrl, long FilterTimeMs)> FilterBranchAsync()
+            {
+                var sw = Stopwatch.StartNew();
+                await _audioFilter.ApplyNoiseReductionAsync(tempInput, tempFilteredOutput);
+                sw.Stop();
+                var filterTimeMs = sw.ElapsedMilliseconds;
+
+                string filteredUrl;
+                using (var s = File.OpenRead(tempFilteredOutput))
+                    filteredUrl = await _fileStore.SaveAsync(s, filteredFileName);
+
+                _logger.LogInformation("Audio {Id} filtered in {ElapsedMs} ms", id, filterTimeMs);
+
+                return (filteredUrl, filterTimeMs);
+            }
+
             async Task<(string Transcript, long TranscriptionTimeMs, string Summary, long SummaryTimeMs)> TranscribeAndSummarizeBranchAsync()
             {
                 var transcriptionSw = Stopwatch.StartNew();
@@ -88,13 +109,16 @@ public class UploadAudioService
 
             (string CompressedUrl, long CompressionTimeMs) compressionResult = default;
             (string Transcript, long TranscriptionTimeMs, string Summary, long SummaryTimeMs) transcriptionResult = default;
+            (string FilteredUrl, long FilterTimeMs) filterResult = default;
 
             Parallel.Invoke(
                 () => compressionResult = CompressBranchAsync().GetAwaiter().GetResult(),
-                () => transcriptionResult = TranscribeAndSummarizeBranchAsync().GetAwaiter().GetResult());
+                () => transcriptionResult = TranscribeAndSummarizeBranchAsync().GetAwaiter().GetResult(),
+                () => filterResult = FilterBranchAsync().GetAwaiter().GetResult());
 
             var (compressedUrl, compressionTimeMs) = compressionResult;
             var (transcript, transcriptionTimeMs, summary, summaryTimeMs) = transcriptionResult;
+            var (filteredUrl, filterTimeMs) = filterResult;
 
             var audioFile = new AudioFile
             {
@@ -105,7 +129,9 @@ public class UploadAudioService
                 Transcript = transcript,
                 TranscriptionTimeMs = transcriptionTimeMs,
                 Summary = summary,
-                SummaryTimeMs = summaryTimeMs
+                SummaryTimeMs = summaryTimeMs,
+                FilteredUrl = filteredUrl,
+                FilterTimeMs = filterTimeMs
             };
             await _audioRepository.AddAsync(audioFile);
 
@@ -115,6 +141,7 @@ public class UploadAudioService
         {
             if (File.Exists(tempInput)) File.Delete(tempInput);
             if (File.Exists(tempOutput)) File.Delete(tempOutput);
+            if (File.Exists(tempFilteredOutput)) File.Delete(tempFilteredOutput);
         }
     }
 }

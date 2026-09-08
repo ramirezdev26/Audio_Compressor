@@ -11,4 +11,6 @@ public class AudioFile
     public long TranscriptionTimeMs { get; set; }
     public string Summary { get; set; } = string.Empty;
     public long SummaryTimeMs { get; set; }
+    public string FilteredUrl { get; set; } = string.Empty;
+    public long FilterTimeMs { get; set; }
 }

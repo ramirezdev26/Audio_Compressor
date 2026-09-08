@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using AudioProcessor.Application.Audio;
+using AudioProcessor.Application.Interfaces;
 
 namespace AudioProcessor.Api.Controllers;
 
@@ -8,12 +9,31 @@ namespace AudioProcessor.Api.Controllers;
 public class AudioController : ControllerBase
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IAudioRepository _audioRepository;
     private readonly ILogger<AudioController> _logger;
 
-    public AudioController(IServiceScopeFactory scopeFactory, ILogger<AudioController> logger)
+    public AudioController(IServiceScopeFactory scopeFactory, IAudioRepository audioRepository, ILogger<AudioController> logger)
     {
         _scopeFactory = scopeFactory;
+        _audioRepository = audioRepository;
         _logger = logger;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAllAudio()
+    {
+        var audioFiles = await _audioRepository.GetAllAsync();
+
+        var result = audioFiles.Select(a => new
+        {
+            id = a.Id,
+            url = a.Url,
+            compressedUrl = a.CompressedUrl,
+            filteredUrl = a.FilteredUrl,
+            uploadedAt = a.UploadedAt
+        });
+
+        return Ok(result);
     }
 
     [HttpPost]

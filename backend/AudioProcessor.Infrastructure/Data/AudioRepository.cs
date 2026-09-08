@@ -1,5 +1,6 @@
 using AudioProcessor.Application.Interfaces;
 using AudioProcessor.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace AudioProcessor.Infrastructure.Data;
 
@@ -16,5 +17,12 @@ public class AudioRepository : IAudioRepository
     {
         _db.AudioFiles.Add(audioFile);
         await _db.SaveChangesAsync();
+    }
+
+    public async Task<List<AudioFile>> GetAllAsync()
+    {
+        return await _db.AudioFiles
+            .OrderByDescending(a => a.UploadedAt)
+            .ToListAsync();
     }
 }
